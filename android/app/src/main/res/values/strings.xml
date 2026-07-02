@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Одигитрия</string>
+    <string name="title_activity_main">Одигитрия</string>
+    <string name="package_name">ru.spaceguide.app</string>
+    <string name="custom_url_scheme">ru.spaceguide.app</string>
+</resources>
