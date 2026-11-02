@@ -6,29 +6,7 @@ import {
   createSpaceObject,
 } from "@/lib/models";
 import { mockSpaceObjects } from "@/lib/mock-data";
-import { z } from "zod";
-
-const objectTranslationSchema = z.object({
-  name: z.string().min(1).max(200),
-  slug: z.string().min(1).max(100),
-  description: z.string().max(500),
-  longDescription: z.string().max(10000),
-  workingHours: z.string().max(500),
-  transport: z.string().max(500),
-  ticketPrices: z.string().max(500),
-});
-
-const createObjectSchema = z.object({
-  id: z.string().min(1).max(100),
-  citySlug: z.string().min(1).max(100),
-  imageUrl: z.string().max(500).optional().or(z.literal("")),
-  audioUrl: z.string().url().optional().or(z.literal("")),
-  translations: z.object({
-    ru: objectTranslationSchema,
-    en: objectTranslationSchema,
-    fr: objectTranslationSchema,
-  }),
-});
+import { createObjectSchema, formatValidationIssues } from "@/lib/validation";
 
 export async function GET(request: NextRequest) {
   const dbAvailable = await isDatabaseAvailable();
@@ -76,7 +54,10 @@ export async function POST(request: Request) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Некорректные данные", details: parsed.error.flatten() },
+        {
+          error: `Некорректные данные: ${formatValidationIssues(parsed.error)}`,
+          details: parsed.error.flatten(),
+        },
         { status: 400 }
       );
     }

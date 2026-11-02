@@ -6,30 +6,7 @@ import {
   deleteSpaceObject,
 } from "@/lib/models";
 import { mockSpaceObjects } from "@/lib/mock-data";
-import { z } from "zod";
-
-const objectTranslationSchema = z.object({
-  name: z.string().min(1).max(200),
-  slug: z.string().min(1).max(100),
-  description: z.string().max(500),
-  longDescription: z.string().max(10000),
-  workingHours: z.string().max(500),
-  transport: z.string().max(500),
-  ticketPrices: z.string().max(500),
-});
-
-const updateObjectSchema = z.object({
-  citySlug: z.string().min(1).max(100).optional(),
-  imageUrl: z.string().max(500).optional().or(z.literal("")).optional(),
-  audioUrl: z.string().url().optional().or(z.literal("")).optional(),
-  translations: z
-    .object({
-      ru: objectTranslationSchema.optional(),
-      en: objectTranslationSchema.optional(),
-      fr: objectTranslationSchema.optional(),
-    })
-    .optional(),
-});
+import { updateObjectSchema, formatValidationIssues } from "@/lib/validation";
 
 export async function GET(
   _request: NextRequest,
@@ -89,7 +66,10 @@ export async function PUT(
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Некорректные данные", details: parsed.error.flatten() },
+        {
+          error: `Некорректные данные: ${formatValidationIssues(parsed.error)}`,
+          details: parsed.error.flatten(),
+        },
         { status: 400 }
       );
     }
