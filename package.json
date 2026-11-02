@@ -6,7 +6,7 @@
     "dev": "next dev",
     "dev:docker": "next dev -p 8080",
     "build": "next build",
-    "vercel-build": "npm run db:migrate && next build",
+    "vercel-build": "npm run db:migrate && npm run db:seed && next build",
     "build:static": "bash scripts/static-export.sh",
     "build:mobile": "bash scripts/static-export.sh && npx cap copy",
     "start": "next start",
