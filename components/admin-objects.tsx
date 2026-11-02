@@ -226,6 +226,7 @@ export function AdminObjects({ citySlug, cityName }: AdminObjectsProps) {
     }
 
     setSaving(true);
+    const toastId = toast.loading("Сохраняем...");
     try {
       const translations = buildTranslations(form);
 
@@ -240,10 +241,10 @@ export function AdminObjects({ citySlug, cityName }: AdminObjectsProps) {
           }),
         });
         if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Failed to update");
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || "Не удалось обновить объект");
         }
-        toast.success("Объект обновлён");
+        toast.success("Объект обновлён", { id: toastId });
       } else {
         const id = `${citySlug}-${form.slug.toLowerCase().replace(/[^a-z0-9-]/g, "")}`;
         const res = await fetch("/api/objects", {
@@ -258,17 +259,22 @@ export function AdminObjects({ citySlug, cityName }: AdminObjectsProps) {
           }),
         });
         if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Failed to create");
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || "Не удалось создать объект");
         }
-        toast.success("Объект создан");
+        toast.success("Объект создан", { id: toastId });
       }
 
       closeModal();
       await fetchObjects();
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Ошибка сохранения");
+      const message =
+        err instanceof Error ? err.message : "Ошибка сохранения объекта";
+      toast.error(message, {
+        id: toastId,
+        duration: 8000,
+      });
     } finally {
       setSaving(false);
     }
