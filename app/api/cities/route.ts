@@ -1,72 +1,35 @@
-import { NextResponse } from "next/server";
-import { isDatabaseAvailable } from "@/lib/db";
-import { getAllCities, createCity } from "@/lib/models";
-import { mockCities } from "@/lib/mock-data";
-import { z } from "zod";
-
-const translationSchema = z.object({
-  name: z.string().min(1).max(200),
-  description: z.string().max(2000),
-});
-
-const createCitySchema = z.object({
-  id: z.string().min(1).max(100),
-  slug: z.string().min(1).max(100),
-  objectCount: z.number().int().min(0).default(0),
-  translations: z.object({
-    ru: translationSchema,
-    en: translationSchema,
-    fr: translationSchema,
-  }),
-});
+import { NextRequest, NextResponse } from "next/server";
+import { isAuthenticated } from "@/lib/auth";
+import { createCity, listCities } from "@/lib/catalog";
+import { createCitySchema, formatValidationIssues } from "@/lib/validation";
 
 export async function GET() {
-  const dbAvailable = await isDatabaseAvailable();
-
-  if (dbAvailable) {
-    try {
-      const cities = await getAllCities();
-      return NextResponse.json(cities);
-    } catch (error) {
-      console.error("Ошибка получения городов:", error);
-      return NextResponse.json(
-        { error: "Ошибка получения данных из DynamoDB" },
-        { status: 500 }
-      );
-    }
+  try {
+    return NextResponse.json(await listCities());
+  } catch (error) {
+    console.error("Ошибка получения городов:", error);
+    return NextResponse.json({ error: "Не удалось загрузить города" }, { status: 500 });
   }
-
-  return NextResponse.json(mockCities);
 }
 
-export async function POST(request: Request) {
-  const dbAvailable = await isDatabaseAvailable();
+export async function POST(request: NextRequest) {
+  if (!(await isAuthenticated())) {
+    return NextResponse.json({ error: "Требуется вход в админку" }, { status: 401 });
+  }
 
-  if (!dbAvailable) {
+  const parsed = createCitySchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: "База данных недоступна в статическом режиме" },
-      { status: 503 }
+      { error: `Некорректные данные: ${formatValidationIssues(parsed.error)}` },
+      { status: 400 }
     );
   }
 
   try {
-    const body = await request.json();
-    const parsed = createCitySchema.safeParse(body);
-
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Некорректные данные", details: parsed.error.flatten() },
-        { status: 400 }
-      );
-    }
-
-    const city = await createCity(parsed.data);
-    return NextResponse.json(city, { status: 201 });
+    await createCity(parsed.data);
+    return NextResponse.json({ ok: true }, { status: 201 });
   } catch (error) {
     console.error("Ошибка создания города:", error);
-    return NextResponse.json(
-      { error: "Ошибка создания города" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Не удалось создать город" }, { status: 500 });
   }
 }

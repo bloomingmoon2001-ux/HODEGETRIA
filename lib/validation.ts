@@ -1,5 +1,32 @@
 import { z } from "zod";
 
+export const cityTranslationSchema = z.object({
+  name: z.string().trim().min(1, "Название обязательно").max(200),
+  description: z.string().max(2000),
+});
+
+export const citySlugSchema = z
+  .string()
+  .trim()
+  .min(1, "Slug обязателен")
+  .max(100)
+  .regex(/^[a-z0-9-]+$/, "Slug: только латиница, цифры и дефис");
+
+export const createCitySchema = z.object({
+  id: z.string().min(1).max(100),
+  slug: citySlugSchema,
+  translations: z.object({
+    ru: cityTranslationSchema,
+    en: cityTranslationSchema,
+    fr: cityTranslationSchema,
+  }),
+});
+
+export const updateCitySchema = z.object({
+  slug: citySlugSchema,
+  translations: createCitySchema.shape.translations,
+});
+
 export const objectTranslationSchema = z.object({
   name: z.string().trim().min(1, "Название обязательно").max(200),
   slug: z.string().trim().min(1, "Slug обязателен").max(100),
@@ -10,17 +37,9 @@ export const objectTranslationSchema = z.object({
   ticketPrices: z.string().max(2000),
 });
 
-export const optionalUrlField = z
-  .string()
-  .max(2000)
-  .optional()
-  .or(z.literal(""));
-
 export const createObjectSchema = z.object({
   id: z.string().min(1).max(250),
   citySlug: z.string().min(1).max(100),
-  imageUrl: optionalUrlField,
-  audioUrl: optionalUrlField,
   translations: z.object({
     ru: objectTranslationSchema,
     en: objectTranslationSchema,
@@ -30,16 +49,16 @@ export const createObjectSchema = z.object({
 
 export const updateObjectSchema = z.object({
   citySlug: z.string().min(1).max(100).optional(),
-  imageUrl: optionalUrlField,
-  audioUrl: optionalUrlField,
   translations: z
     .object({
-      ru: objectTranslationSchema.optional(),
-      en: objectTranslationSchema.optional(),
-      fr: objectTranslationSchema.optional(),
+      ru: objectTranslationSchema,
+      en: objectTranslationSchema,
+      fr: objectTranslationSchema,
     })
     .optional(),
 });
+
+export const mediaKindSchema = z.enum(["photo", "audio"]);
 
 export function formatValidationIssues(error: z.ZodError): string {
   return error.issues

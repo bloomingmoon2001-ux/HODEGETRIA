@@ -1,80 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isDatabaseAvailable } from "@/lib/db";
-import {
-  getAllSpaceObjects,
-  getSpaceObjectsByCity,
-  createSpaceObject,
-} from "@/lib/models";
-import { mockSpaceObjects } from "@/lib/mock-data";
+import { isAuthenticated } from "@/lib/auth";
+import { createObject, listObjects } from "@/lib/catalog";
 import { createObjectSchema, formatValidationIssues } from "@/lib/validation";
 
 export async function GET(request: NextRequest) {
-  const dbAvailable = await isDatabaseAvailable();
-  const { searchParams } = new URL(request.url);
-  const citySlug = searchParams.get("citySlug");
-
-  if (dbAvailable) {
-    try {
-      let objects;
-      if (citySlug) {
-        objects = await getSpaceObjectsByCity(citySlug);
-      } else {
-        objects = await getAllSpaceObjects();
-      }
-      return NextResponse.json(objects);
-    } catch (error) {
-      console.error("Ошибка получения объектов:", error);
-      return NextResponse.json(
-        { error: "Ошибка получения данных из DynamoDB" },
-        { status: 500 }
-      );
-    }
+  const citySlug = new URL(request.url).searchParams.get("citySlug") ?? undefined;
+  try {
+    return NextResponse.json(await listObjects(citySlug));
+  } catch (error) {
+    console.error("Ошибка получения объектов:", error);
+    return NextResponse.json({ error: "Не удалось загрузить объекты" }, { status: 500 });
   }
-
-  let result = mockSpaceObjects;
-  if (citySlug) {
-    result = result.filter((o) => o.citySlug === citySlug);
-  }
-  return NextResponse.json(result);
 }
 
-export async function POST(request: Request) {
-  const dbAvailable = await isDatabaseAvailable();
+export async function POST(request: NextRequest) {
+  if (!(await isAuthenticated())) {
+    return NextResponse.json({ error: "Требуется вход в админку" }, { status: 401 });
+  }
 
-  if (!dbAvailable) {
+  const parsed = createObjectSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: "База данных недоступна в статическом режиме" },
-      { status: 503 }
+      { error: `Некорректные данные: ${formatValidationIssues(parsed.error)}` },
+      { status: 400 }
     );
   }
 
   try {
-    const body = await request.json();
-    const parsed = createObjectSchema.safeParse(body);
-
-    if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: `Некорректные данные: ${formatValidationIssues(parsed.error)}`,
-          details: parsed.error.flatten(),
-        },
-        { status: 400 }
-      );
-    }
-
-    const data = {
-      ...parsed.data,
-      imageUrl: parsed.data.imageUrl || undefined,
-      audioUrl: parsed.data.audioUrl || undefined,
-    };
-
-    const obj = await createSpaceObject(data);
-    return NextResponse.json(obj, { status: 201 });
+    await createObject({
+      id: parsed.data.id,
+      citySlug: parsed.data.citySlug,
+      slug: parsed.data.translations.ru.slug,
+      translations: parsed.data.translations,
+    });
+    return NextResponse.json({ ok: true }, { status: 201 });
   } catch (error) {
     console.error("Ошибка создания объекта:", error);
-    return NextResponse.json(
-      { error: "Ошибка создания объекта" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Не удалось создать объект" }, { status: 500 });
   }
 }
